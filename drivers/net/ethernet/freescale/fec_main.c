@@ -2284,10 +2284,12 @@ failed_init:
 	if (fep->reg_phy)
 		regulator_disable(fep->reg_phy);
 failed_regulator:
-	clk_disable_unprepare(fep->clk_ahb);
+	if (fep->clk_ptp)
+		clk_disable_unprepare(fep->clk_ptp);
+	if (fep->clk_enet_out)
+		clk_disable_unprepare(fep->clk_enet_out);
 	clk_disable_unprepare(fep->clk_ipg);
-	clk_disable_unprepare(fep->clk_enet_out);
-	clk_disable_unprepare(fep->clk_ptp);
+	clk_disable_unprepare(fep->clk_ahb);
 failed_clk:
 failed_ioremap:
 	free_netdev(ndev);
@@ -2316,14 +2318,14 @@ fec_drv_remove(struct platform_device *pdev)
 	}
 	if (fep->reg_phy)
 		regulator_disable(fep->reg_phy);
-	if (fep->bufdesc_ex) {
+	if (fep->bufdesc_ex)
 		clk_disable_unprepare(fep->clk_ptp);
-		if (fep->ptp_clock)
-			ptp_clock_unregister(fep->ptp_clock);
-	}
-	clk_disable_unprepare(fep->clk_enet_out);
-	clk_disable_unprepare(fep->clk_ahb);
+	if (fep->ptp_clock)
+		ptp_clock_unregister(fep->ptp_clock);
+	if (fep->clk_enet_out)
+		clk_disable_unprepare(fep->clk_enet_out);
 	clk_disable_unprepare(fep->clk_ipg);
+	clk_disable_unprepare(fep->clk_ahb);
 	free_netdev(ndev);
 
 	return 0;
@@ -2340,9 +2342,10 @@ fec_suspend(struct device *dev)
 		fec_stop(ndev);
 		netif_device_detach(ndev);
 	}
-	clk_disable_unprepare(fep->clk_enet_out);
-	clk_disable_unprepare(fep->clk_ahb);
+	if (fep->clk_enet_out)
+		clk_disable_unprepare(fep->clk_enet_out);
 	clk_disable_unprepare(fep->clk_ipg);
+	clk_disable_unprepare(fep->clk_ahb);
 
 	if (fep->reg_phy)
 		regulator_disable(fep->reg_phy);
@@ -2363,9 +2366,10 @@ fec_resume(struct device *dev)
 			return ret;
 	}
 
-	clk_prepare_enable(fep->clk_enet_out);
 	clk_prepare_enable(fep->clk_ahb);
 	clk_prepare_enable(fep->clk_ipg);
+	if (fep->clk_enet_out)
+		clk_prepare_enable(fep->clk_enet_out);
 	if (netif_running(ndev)) {
 		fec_restart(ndev, fep->full_duplex);
 		netif_device_attach(ndev);
