@@ -1,0 +1,86 @@
+/*
+ * Copyright (C) 2013 Russell King
+ *
+ * The code contained herein is licensed under the GNU General Public
+ * License version 2.
+ */
+/dts-v1/;
+
+#include "imx6dl.dtsi"
+#include "imx6qdl-microsom.dtsi"
+#include "imx6qdl-microsom-ar8035.dtsi"
+
+/ {
+	model = "SolidRun Cubox-i DL/Solo Carrier-1 Board";
+	compatible = "solidrun,cubox-i-carrier-1", "fsl,imx6dl";
+
+	ir_recv: ir-receiver {
+		compatible = "gpio-ir-receiver";
+		gpios = <&gpio1 2 1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio1_2_carrier_1>;
+	};
+
+	codec: spdif-transmitter {
+		compatible = "linux,spdif-dit";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_spdif_2_out_only>;
+	};
+
+	sound-spdif {
+		compatible = "fsl,imx-audio-spdif";
+		model = "imx-spdif";
+		/* IMX6 doesn't implement this yet */
+		spdif-controller = <&spdif>;
+		spdif-out;
+	};
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1_1>;
+
+	/*
+	 * Not fitted on Carrier-1 board... yet
+	status = "okay";
+
+	rtc: pcf8523@68 {
+		compatible = "nxp,pcf8523";
+		reg = <0x68>;
+	};
+	 */
+};
+
+&iomuxc {
+	ir_recv {
+		pinctrl_gpio1_2_carrier_1: gpio1_2grp {
+			fsl,pins = <
+				MX6QDL_PAD_GPIO_2__GPIO1_IO02	0x80000000
+			>;
+		};
+	};
+
+	sound-spdif {
+		pinctrl_spdif_2_out_only: spdifgrp-3 {
+			fsl,pins = <
+				MX6QDL_PAD_GPIO_17__SPDIF_OUT 0x1b0b0
+			>;
+		};
+	};
+
+	usbhc2 {
+		pinctrl_usdhc2_cd_wp: usdhc2_cd_wp {
+			fsl,pins = <
+				MX6QDL_PAD_GPIO_4__SD2_CD_B	0x1f071
+			>;
+		};
+	};
+};
+
+&usdhc2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc2_2_dat3cd &pinctrl_usdhc2_cd_wp>;
+	vmmc-supply = <&reg_3p3v>;
+	fsl,cd-controller;
+	status = "okay";
+};
