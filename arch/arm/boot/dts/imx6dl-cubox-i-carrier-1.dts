@@ -36,6 +36,12 @@
 	};
 };
 
+&hdmi {
+	ddc = <&i2c2>;
+	status = "okay";
+	crtcs = <&ipu1 0>;
+};
+
 &i2c1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c1_1>;
@@ -49,6 +55,13 @@
 		reg = <0x68>;
 	};
 	 */
+};
+
+&i2c2 {
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c2_2>;
+	status = "okay";
 };
 
 &iomuxc {
