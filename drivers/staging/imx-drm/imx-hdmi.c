@@ -507,7 +507,7 @@ static void imx_hdmi_update_csc_coeffs(struct imx_hdmi *hdmi)
 	hdmi_writeb(hdmi, ((*csc_coeff)[0][2] & 0xff), HDMI_CSC_COEF_A3_LSB);
 	hdmi_writeb(hdmi, ((*csc_coeff)[0][2] >> 8), HDMI_CSC_COEF_A3_MSB);
 	hdmi_writeb(hdmi, ((*csc_coeff)[0][3] & 0xff), HDMI_CSC_COEF_A4_LSB);
-	hdmi_writeb(hdmi, ((*csc_coeff)[0][4] >> 8), HDMI_CSC_COEF_A4_MSB);
+	hdmi_writeb(hdmi, ((*csc_coeff)[0][3] >> 8), HDMI_CSC_COEF_A4_MSB);
 
 	hdmi_writeb(hdmi, ((*csc_coeff)[1][0] & 0xff), HDMI_CSC_COEF_B1_LSB);
 	hdmi_writeb(hdmi, ((*csc_coeff)[1][0] >> 8), HDMI_CSC_COEF_B1_MSB);
@@ -516,7 +516,7 @@ static void imx_hdmi_update_csc_coeffs(struct imx_hdmi *hdmi)
 	hdmi_writeb(hdmi, ((*csc_coeff)[1][2] & 0xff), HDMI_CSC_COEF_B3_LSB);
 	hdmi_writeb(hdmi, ((*csc_coeff)[1][2] >> 8), HDMI_CSC_COEF_B3_MSB);
 	hdmi_writeb(hdmi, ((*csc_coeff)[1][3] & 0xff), HDMI_CSC_COEF_B4_LSB);
-	hdmi_writeb(hdmi, ((*csc_coeff)[1][4] >> 8), HDMI_CSC_COEF_B4_MSB);
+	hdmi_writeb(hdmi, ((*csc_coeff)[1][3] >> 8), HDMI_CSC_COEF_B4_MSB);
 
 	hdmi_writeb(hdmi, ((*csc_coeff)[2][0] & 0xff), HDMI_CSC_COEF_C1_LSB);
 	hdmi_writeb(hdmi, ((*csc_coeff)[2][0] >> 8), HDMI_CSC_COEF_C1_MSB);
@@ -525,7 +525,7 @@ static void imx_hdmi_update_csc_coeffs(struct imx_hdmi *hdmi)
 	hdmi_writeb(hdmi, ((*csc_coeff)[2][2] & 0xff), HDMI_CSC_COEF_C3_LSB);
 	hdmi_writeb(hdmi, ((*csc_coeff)[2][2] >> 8), HDMI_CSC_COEF_C3_MSB);
 	hdmi_writeb(hdmi, ((*csc_coeff)[2][3] & 0xff), HDMI_CSC_COEF_C4_LSB);
-	hdmi_writeb(hdmi, ((*csc_coeff)[2][4] >> 8), HDMI_CSC_COEF_C4_MSB);
+	hdmi_writeb(hdmi, ((*csc_coeff)[2][3] >> 8), HDMI_CSC_COEF_C4_MSB);
 
 	val = hdmi_readb(hdmi, HDMI_CSC_SCALE);
 	val &= ~HDMI_CSC_SCALE_CSCSCALE_MASK;
@@ -1774,8 +1774,6 @@ static int imx_hdmi_register(struct imx_hdmi *hdmi)
 {
 	int ret;
 
-	drm_mode_connector_attach_encoder(&hdmi->connector, &hdmi->encoder);
-
 	hdmi->connector.funcs = &imx_hdmi_connector_funcs;
 	hdmi->encoder.funcs = &imx_hdmi_encoder_funcs;
 
@@ -1802,6 +1800,8 @@ static int imx_hdmi_register(struct imx_hdmi *hdmi)
 	}
 
 	hdmi->connector.encoder = &hdmi->encoder;
+
+	drm_mode_connector_attach_encoder(&hdmi->connector, &hdmi->encoder);
 
 	return 0;
 }
