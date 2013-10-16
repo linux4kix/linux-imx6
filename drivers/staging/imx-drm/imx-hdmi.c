@@ -1418,7 +1418,7 @@ static int imx_hdmi_setup(struct imx_hdmi *hdmi, struct drm_display_mode *mode)
 
 	hdmi_disable_overflow_interrupts(hdmi);
 
-	hdmi->vic = 6;
+	hdmi->vic = drm_match_cea_mode(mode);
 
 	if (!hdmi->vic) {
 		dev_dbg(hdmi->dev, "Non-CEA mode used in HDMI\n");
