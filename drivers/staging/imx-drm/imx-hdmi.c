@@ -19,6 +19,7 @@
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
 #include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
+#include <linux/of_device.h>
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
@@ -123,6 +124,7 @@ struct imx_hdmi {
 
 	u8 edid[HDMI_EDID_LEN];
 	bool cable_plugin;
+	bool mx6dl_workaround;
 
 	bool phy_enabled;
 	struct drm_display_mode previous_mode;
@@ -1358,13 +1360,17 @@ static void imx_hdmi_clear_overflow(struct imx_hdmi *hdmi)
 	int count;
 	u8 val;
 
+	/* TMDS software reset */
+	hdmi_writeb(hdmi, (u8)~HDMI_MC_SWRSTZ_TMDSSWRST_REQ, HDMI_MC_SWRSTZ);
+
 	val = hdmi_readb(hdmi, HDMI_FC_INVIDCONF);
+	if (hdmi->mx6dl_workaround) {
+		hdmi_writeb(hdmi, val, HDMI_FC_INVIDCONF);
+		return;
+	}
 
 	for (count = 0; count < 5; count++)
 		hdmi_writeb(hdmi, val, HDMI_FC_INVIDCONF);
-
-	/* TMDS software reset */
-	hdmi_writeb(hdmi, (u8)~HDMI_MC_SWRSTZ_TMDSSWRST_REQ, HDMI_MC_SWRSTZ);
 }
 
 static void hdmi_enable_overflow_interrupts(struct imx_hdmi *hdmi)
@@ -1756,17 +1762,34 @@ static int imx_hdmi_register(struct imx_hdmi *hdmi)
 	return 0;
 }
 
+static const struct of_device_id imx_hdmi_dt_ids[] = {
+	{ .compatible = "fsl,imx6q-hdmi", .data = (void *)0 },
+	{ .compatible = "fsl,imx6dl-hdmi", .data = (void *)1 },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, imx_hdmi_dt_ids);
+
 static int imx_hdmi_platform_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct device_node *ddc_node;
 	struct imx_hdmi *hdmi;
-	int ret, irq;
 	struct resource *iores;
+	const struct of_device_id *match;
+	int ret, irq;
 
 	hdmi = devm_kzalloc(&pdev->dev, sizeof(*hdmi), GFP_KERNEL);
 	if (!hdmi)
 		return -ENOMEM;
+
+	match = of_match_device(of_match_ptr(imx_hdmi_dt_ids), &pdev->dev);
+	if (!match) {
+		dev_err(&pdev->dev, "error: no device match found\n");
+		return -ENODEV;
+	}
+
+	if (match->data)
+		hdmi->mx6dl_workaround = true;
 
 	hdmi->dev = &pdev->dev;
 
@@ -1875,12 +1898,6 @@ err_isfr:
 
 	return ret;
 }
-
-static const struct of_device_id imx_hdmi_dt_ids[] = {
-	{ .compatible = "fsl,imx6q-hdmi", },
-	{ /* sentinel */ }
-};
-MODULE_DEVICE_TABLE(of, imx_hdmi_dt_ids);
 
 static int imx_hdmi_platform_remove(struct platform_device *pdev)
 {
