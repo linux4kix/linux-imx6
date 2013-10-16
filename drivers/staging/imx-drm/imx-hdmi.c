@@ -133,7 +133,6 @@ struct imx_hdmi {
 	struct i2c_adapter *ddc;
 	void __iomem *regs;
 
-	struct fb_videomode fb_mode;
 	spinlock_t enable_lock;
 	spinlock_t lock;
 	unsigned long pixel_clk_rate;
@@ -1221,20 +1220,17 @@ static void hdmi_config_AVI(struct imx_hdmi *hdmi)
 	hdmi_writeb(hdmi, 0, HDMI_FC_AVISRB1);
 }
 
-static void hdmi_av_composer(struct imx_hdmi *hdmi)
+static void hdmi_av_composer(struct imx_hdmi *hdmi,
+	const struct drm_display_mode *mode)
 {
 	u8 inv_val;
-	struct fb_videomode *fb_mode = &hdmi->fb_mode;
 	struct hdmi_vmode *vmode = &hdmi->hdmi_data.video_mode;
-	int hblank, vblank;
+	int hblank, vblank, h_de_hs, v_de_vs, hsync_len, vsync_len;
 
-	vmode->mhsyncpolarity = ((fb_mode->sync & FB_SYNC_HOR_HIGH_ACT) != 0);
-	vmode->mvsyncpolarity = ((fb_mode->sync & FB_SYNC_VERT_HIGH_ACT) != 0);
-	vmode->minterlaced = ((fb_mode->vmode & FB_VMODE_INTERLACED) != 0);
-	vmode->mpixelclock = (fb_mode->xres + fb_mode->left_margin +
-		fb_mode->right_margin + fb_mode->hsync_len) * (fb_mode->yres +
-		fb_mode->upper_margin + fb_mode->lower_margin +
-		fb_mode->vsync_len) * fb_mode->refresh;
+	vmode->mhsyncpolarity = !!(mode->flags & DRM_MODE_FLAG_PHSYNC);
+	vmode->mvsyncpolarity = !!(mode->flags & DRM_MODE_FLAG_PVSYNC);
+	vmode->minterlaced = !!(mode->flags & DRM_MODE_FLAG_INTERLACE);
+	vmode->mpixelclock = mode->clock * 1000;
 
 	dev_dbg(hdmi->dev, "final pixclk = %d\n", vmode->mpixelclock);
 
@@ -1272,38 +1268,40 @@ static void hdmi_av_composer(struct imx_hdmi *hdmi)
 
 	hdmi_writeb(hdmi, inv_val, HDMI_FC_INVIDCONF);
 
-	/* Set up horizontal active pixel region width */
-	hdmi_writeb(hdmi, fb_mode->xres >> 8, HDMI_FC_INHACTV1);
-	hdmi_writeb(hdmi, fb_mode->xres, HDMI_FC_INHACTV0);
+	/* Set up horizontal active pixel width */
+	hdmi_writeb(hdmi, mode->hdisplay >> 8, HDMI_FC_INHACTV1);
+	hdmi_writeb(hdmi, mode->hdisplay, HDMI_FC_INHACTV0);
 
-	/* Set up vertical blanking pixel region width */
-	hdmi_writeb(hdmi, fb_mode->yres >> 8, HDMI_FC_INVACTV1);
-	hdmi_writeb(hdmi, fb_mode->yres, HDMI_FC_INVACTV0);
+	/* Set up vertical active lines */
+	hdmi_writeb(hdmi, mode->vdisplay >> 8, HDMI_FC_INVACTV1);
+	hdmi_writeb(hdmi, mode->vdisplay, HDMI_FC_INVACTV0);
 
 	/* Set up horizontal blanking pixel region width */
-	hblank = fb_mode->left_margin + fb_mode->right_margin +
-		fb_mode->hsync_len;
+	hblank = mode->htotal - mode->hdisplay;
 	hdmi_writeb(hdmi, hblank >> 8, HDMI_FC_INHBLANK1);
 	hdmi_writeb(hdmi, hblank, HDMI_FC_INHBLANK0);
 
 	/* Set up vertical blanking pixel region width */
-	vblank = fb_mode->upper_margin + fb_mode->lower_margin +
-		fb_mode->vsync_len;
+	vblank = mode->vtotal - mode->vdisplay;
 	hdmi_writeb(hdmi, vblank, HDMI_FC_INVBLANK);
 
 	/* Set up HSYNC active edge delay width (in pixel clks) */
-	hdmi_writeb(hdmi, fb_mode->right_margin >> 8, HDMI_FC_HSYNCINDELAY1);
-	hdmi_writeb(hdmi, fb_mode->right_margin, HDMI_FC_HSYNCINDELAY0);
+	h_de_hs = mode->hsync_start - mode->hdisplay;
+	hdmi_writeb(hdmi, h_de_hs >> 8, HDMI_FC_HSYNCINDELAY1);
+	hdmi_writeb(hdmi, h_de_hs, HDMI_FC_HSYNCINDELAY0);
 
 	/* Set up VSYNC active edge delay (in pixel clks) */
-	hdmi_writeb(hdmi, fb_mode->lower_margin, HDMI_FC_VSYNCINDELAY);
+	v_de_vs = mode->vsync_start - mode->vdisplay;
+	hdmi_writeb(hdmi, v_de_vs, HDMI_FC_VSYNCINDELAY);
 
 	/* Set up HSYNC active pulse width (in pixel clks) */
-	hdmi_writeb(hdmi, fb_mode->hsync_len >> 8, HDMI_FC_HSYNCINWIDTH1);
-	hdmi_writeb(hdmi, fb_mode->hsync_len, HDMI_FC_HSYNCINWIDTH0);
+	hsync_len = mode->hsync_end - mode->hsync_start;
+	hdmi_writeb(hdmi, hsync_len >> 8, HDMI_FC_HSYNCINWIDTH1);
+	hdmi_writeb(hdmi, hsync_len, HDMI_FC_HSYNCINWIDTH0);
 
 	/* Set up VSYNC active edge delay (in pixel clks) */
-	hdmi_writeb(hdmi, fb_mode->vsync_len, HDMI_FC_VSYNCINWIDTH);
+	vsync_len = mode->vsync_end - mode->vsync_start;
+	hdmi_writeb(hdmi, vsync_len, HDMI_FC_VSYNCINWIDTH);
 }
 
 static void imx_hdmi_phy_disable(struct imx_hdmi *hdmi)
@@ -1383,38 +1381,9 @@ static void hdmi_disable_overflow_interrupts(struct imx_hdmi *hdmi)
 		    HDMI_IH_MUTE_FC_STAT2);
 }
 
-static inline void
-convert_to_video_timing(struct fb_videomode *timing,
-			struct drm_display_mode *mode)
-{
-	memset(timing, 0, sizeof(*timing));
-
-	timing->pixclock = mode->clock * 1000;
-	timing->refresh = drm_mode_vrefresh(mode);
-
-	timing->xres = mode->hdisplay;
-	timing->left_margin = mode->hsync_start - mode->hdisplay;
-	timing->hsync_len = mode->hsync_end - mode->hsync_start;
-	timing->right_margin = mode->htotal - mode->hsync_end;
-
-	timing->yres = mode->vdisplay;
-	timing->upper_margin = mode->vsync_start - mode->vdisplay;
-	timing->vsync_len = mode->vsync_end - mode->vsync_start;
-	timing->lower_margin = mode->vtotal - mode->vsync_end;
-
-	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
-		timing->vmode = FB_VMODE_INTERLACED;
-	else
-		timing->vmode = FB_VMODE_NONINTERLACED;
-
-	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
-		timing->vmode |= FB_VMODE_DOUBLE;
-}
-
 static int imx_hdmi_setup(struct imx_hdmi *hdmi, struct drm_display_mode *mode)
 {
 	int ret;
-	convert_to_video_timing(&hdmi->fb_mode, mode);
 
 	hdmi_disable_overflow_interrupts(hdmi);
 
@@ -1461,7 +1430,7 @@ static int imx_hdmi_setup(struct imx_hdmi *hdmi, struct drm_display_mode *mode)
 	hdmi->hdmi_data.video_mode.mdataenablepolarity = true;
 
 	/* HDMI Initialization Step B.1 */
-	hdmi_av_composer(hdmi);
+	hdmi_av_composer(hdmi, mode);
 
 	/* HDMI Initializateion Step B.2 */
 	ret = imx_hdmi_phy_init(hdmi);
