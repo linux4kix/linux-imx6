@@ -122,10 +122,8 @@ struct imx_hdmi {
 	int vic;
 
 	u8 edid[HDMI_EDID_LEN];
-	bool fb_reg;
 	bool cable_plugin;
 
-	spinlock_t irq_lock;
 	bool phy_enabled;
 	struct drm_display_mode previous_mode;
 
@@ -1469,13 +1467,7 @@ static int imx_hdmi_setup(struct imx_hdmi *hdmi, struct drm_display_mode *mode)
 /* Wait until we are registered to enable interrupts */
 static int imx_hdmi_fb_registered(struct imx_hdmi *hdmi)
 {
-	unsigned long flags;
 	int ret;
-
-	if (hdmi->fb_reg)
-		return 0;
-
-	spin_lock_irqsave(&hdmi->irq_lock, flags);
 
 	ret = clk_prepare_enable(hdmi->iahb_clk);
 	if (ret)
@@ -1497,11 +1489,8 @@ static int imx_hdmi_fb_registered(struct imx_hdmi *hdmi)
 	/* Unmute interrupts */
 	hdmi_writeb(hdmi, ~HDMI_IH_PHY_STAT0_HPD, HDMI_IH_MUTE_PHY_STAT0);
 
-	hdmi->fb_reg = true;
-
 	clk_disable_unprepare(hdmi->iahb_clk);
 
-	spin_unlock_irqrestore(&hdmi->irq_lock, flags);
 	return 0;
 }
 
@@ -1863,8 +1852,6 @@ static int imx_hdmi_platform_probe(struct platform_device *pdev)
 	 * N and cts values before enabling phy
 	 */
 	hdmi_init_clk_regenerator(hdmi);
-
-	spin_lock_init(&hdmi->irq_lock);
 
 	/*
 	 * Configure registers related to HDMI interrupt
