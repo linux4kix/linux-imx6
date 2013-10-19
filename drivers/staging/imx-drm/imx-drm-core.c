@@ -468,7 +468,11 @@ static void imx_drm_update_possible_crtcs(void)
 			}
 		}
 		enc->encoder->possible_crtcs = possible_crtcs;
-		enc->encoder->possible_clones = possible_crtcs;
+		/*
+		 * FIXME: this is the mask of _outputs_ which can clone
+		 * this output.
+		 */ 
+		enc->encoder->possible_clones = ~0;
 	}
 }
 
