@@ -47,9 +47,9 @@ struct clk_pllv3 {
 
 #define to_clk_pllv3(_hw) container_of(_hw, struct clk_pllv3, hw)
 
-static int clk_pllv3_wait_for_lock(struct clk_pllv3 *pll, u32 timeout_ms)
+static int clk_pllv3_wait_lock(struct clk_pllv3 *pll)
 {
-	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
+	unsigned long timeout = jiffies + msecs_to_jiffies(100);
 	u32 val = readl_relaxed(pll->base) & BM_PLL_POWER;
 
 	/* No need to wait for lock when pll is power down */
@@ -64,26 +64,31 @@ static int clk_pllv3_wait_for_lock(struct clk_pllv3 *pll, u32 timeout_ms)
 			break;
 	} while (1);
 
-	if (readl_relaxed(pll->base) & BM_PLL_LOCK)
-		return 0;
-	else
-		return -ETIMEDOUT;
+	return readl_relaxed(pll->base) & BM_PLL_LOCK ? 0 : -ETIMEDOUT;
 }
 
 static int clk_pllv3_prepare(struct clk_hw *hw)
 {
 	struct clk_pllv3 *pll = to_clk_pllv3(hw);
-	u32 val;
+	u32 val, newval;
+	int ret;
 
 	val = readl_relaxed(pll->base);
-	val &= ~BM_PLL_BYPASS;
 	if (pll->powerup_set)
-		val |= BM_PLL_POWER;
+		newval = val | BM_PLL_POWER;
 	else
-		val &= ~BM_PLL_POWER;
-	writel_relaxed(val, pll->base);
+		newval = val & ~BM_PLL_POWER;
+	writel_relaxed(newval, pll->base);
 
-	return clk_pllv3_wait_for_lock(pll, 10);
+	ret = clk_pllv3_wait_lock(pll);
+	if (ret == 0) {
+		newval &= ~BM_PLL_BYPASS;
+		writel_relaxed(newval, pll->base);
+	} else {
+		writel_relaxed(val, pll->base);
+	}
+
+	return ret;
 }
 
 static void clk_pllv3_unprepare(struct clk_hw *hw)
@@ -159,7 +164,7 @@ static int clk_pllv3_set_rate(struct clk_hw *hw, unsigned long rate,
 	val |= div;
 	writel_relaxed(val, pll->base);
 
-	return clk_pllv3_wait_for_lock(pll, 10);
+	return clk_pllv3_wait_lock(pll);
 }
 
 static const struct clk_ops clk_pllv3_ops = {
@@ -215,7 +220,7 @@ static int clk_pllv3_sys_set_rate(struct clk_hw *hw, unsigned long rate,
 	val |= div;
 	writel_relaxed(val, pll->base);
 
-	return clk_pllv3_wait_for_lock(pll, 10);
+	return clk_pllv3_wait_lock(pll);
 }
 
 static const struct clk_ops clk_pllv3_sys_ops = {
@@ -269,9 +274,10 @@ static int clk_pllv3_av_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct clk_pllv3 *pll = to_clk_pllv3(hw);
 	unsigned long min_rate = parent_rate * 27;
 	unsigned long max_rate = parent_rate * 54;
-	u32 val, div;
+	u32 val, newval, div;
 	u32 mfn, mfd = 1000000;
 	s64 temp64;
+	int ret;
 
 	if (rate < min_rate || rate > max_rate)
 		return -EINVAL;
@@ -282,14 +288,33 @@ static int clk_pllv3_av_set_rate(struct clk_hw *hw, unsigned long rate,
 	do_div(temp64, parent_rate);
 	mfn = temp64;
 
-	val = readl_relaxed(pll->base);
-	val &= ~pll->div_mask;
-	val |= div;
-	writel_relaxed(val, pll->base);
-	writel_relaxed(mfn, pll->base + PLL_NUM_OFFSET);
-	writel_relaxed(mfd, pll->base + PLL_DENOM_OFFSET);
+        val = readl_relaxed(pll->base);
 
-	return clk_pllv3_wait_for_lock(pll, 10);
+        /* set the PLL into bypass mode */
+        newval = val | BM_PLL_BYPASS;
+        writel_relaxed(newval, pll->base);
+
+        /* configure the new frequency */
+        newval &= ~pll->div_mask;
+        newval |= div;
+        writel_relaxed(newval, pll->base);
+        writel_relaxed(mfn, pll->base + PLL_NUM_OFFSET);
+        writel(mfd, pll->base + PLL_DENOM_OFFSET);
+
+        if (val & BM_PLL_POWER) {
+                /* PLL is powered down */
+                ret = 0;
+        } else {
+                ret = clk_pllv3_wait_lock(pll);
+                if (ret == 0) {
+                        /* only if it locked can we switch back to the PLL */
+                        newval &= ~BM_PLL_BYPASS;
+                        newval |= val & BM_PLL_BYPASS;
+                        writel(newval, pll->base);
+                }
+        }
+
+        return ret;
 }
 
 static const struct clk_ops clk_pllv3_av_ops = {
