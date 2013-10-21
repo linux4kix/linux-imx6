@@ -81,7 +81,7 @@
 		};
 	};
 
-	usbhc2 {
+	usdhc2 {
 		pinctrl_usdhc2_cd_wp: usdhc2_cd_wp {
 			fsl,pins = <
 				MX6QDL_PAD_GPIO_4__SD2_CD_B	0x1f071
