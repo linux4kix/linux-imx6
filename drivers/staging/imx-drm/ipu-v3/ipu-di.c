@@ -608,7 +608,7 @@ int ipu_di_init_sync_panel(struct ipu_di *di, struct ipu_di_signal_cfg *sig)
 	ret = clk_set_rate(di->clk_di_pixel, round);
 
 	dev_dbg(di->ipu->dev, "Want %luHz IPU %luHz DI %luHz using %s, got %luHz\n",
-		sig->pixclock,
+		sig->pixelclock,
 		clk_get_rate(di->clk_ipu),
 		clk_get_rate(di->clk_di),
 		parent == di->clk_di ? "DI" : "IPU",
