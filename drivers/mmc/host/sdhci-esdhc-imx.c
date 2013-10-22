@@ -487,7 +487,7 @@ static inline void esdhc_pltfm_set_clock(struct sdhci_host *host,
 	u32 temp, val;
 
 	if (clock == 0) {
-		if (is_imx6q_usdhc(imx_data)) {
+		if (is_imx6q_usdhc(imx_data) && !(host->quirks2 & SDHCI_QUIRK2_NO_1_8_V)) {
 			val = readl(host->ioaddr + ESDHC_VENDOR_SPEC);
 			writel(val & ~ESDHC_VENDOR_SPEC_FRC_SDCLK_ON,
 					host->ioaddr + ESDHC_VENDOR_SPEC);
@@ -522,7 +522,8 @@ static inline void esdhc_pltfm_set_clock(struct sdhci_host *host,
 		| (pre_div << ESDHC_PREDIV_SHIFT));
 	sdhci_writel(host, temp, ESDHC_SYSTEM_CONTROL);
 
-	if (is_imx6q_usdhc(imx_data)) {
+
+	if (is_imx6q_usdhc(imx_data) && !(host->quirks2 & SDHCI_QUIRK2_NO_1_8_V)) {
 		val = readl(host->ioaddr + ESDHC_VENDOR_SPEC);
 		writel(val | ESDHC_VENDOR_SPEC_FRC_SDCLK_ON,
 		host->ioaddr + ESDHC_VENDOR_SPEC);
