@@ -14,6 +14,10 @@
 	model = "SolidRun Cubox-i DL/Solo Carrier-1 Board";
 	compatible = "solidrun,cubox-i-carrier-1", "fsl,imx6dl";
 
+        aliases {
+                mxcfb0 = &mxcfb1;
+	};
+
 	ir_recv: ir-receiver {
 		compatible = "gpio-ir-receiver";
 		gpios = <&gpio1 2 1>;
@@ -34,12 +38,48 @@
 		spdif-controller = <&spdif>;
 		spdif-out;
 	};
+
+        mxcfb1: fb@0 {
+                compatible = "fsl,mxc_sdc_fb";
+                disp_dev = "hdmi";
+                interface_pix_fmt = "RGB24";
+                mode_str ="1280x720@60";
+                default_bpp = <24>;
+                int_clk = <0>;
+                late_init = <0>;
+                status = "okay";
+        };
 };
 
 &hdmi {
 	ddc = <&i2c2>;
 	status = "okay";
 	crtcs = <&ipu1 0>;
+};
+
+&hdmi_audio {
+        status = "okay";
+};
+
+&hdmi_cec {
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_hdmi_cec_2>;
+        status = "okay";
+};
+
+&hdmi_core {
+        ipu_id = <0>;
+        disp_id = <0>;
+        status = "okay";
+};
+
+&hdmi_video {
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_hdmi_hdcp_1>;
+        fsl,phy_reg_vlev = <0x0294>;
+        fsl,phy_reg_cksymtx = <0x800d>;
+	fsl,hdcp;
+        status = "okay";
 };
 
 &i2c1 {
@@ -61,7 +101,7 @@
 	clock-frequency = <100000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2_2>;
-	status = "okay";
+	status = "disable";
 };
 
 &iomuxc {
