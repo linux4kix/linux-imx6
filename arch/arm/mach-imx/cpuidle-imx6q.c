@@ -51,7 +51,8 @@ static struct cpuidle_driver imx6q_cpuidle_driver = {
 		/* WAIT */
 		{
 			.exit_latency = 50,
-			.target_residency = 75,
+			//.target_residency = 75,
+			.target_residency = 10000,
 			.flags = CPUIDLE_FLAG_TIME_VALID |
 			         CPUIDLE_FLAG_TIMER_STOP,
 			.enter = imx6q_enter_wait,
