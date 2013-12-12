@@ -1999,6 +1999,12 @@ gckEVENT_Notify(
 
         queue = gcvNULL;
 
+        /* Grab the mutex queue. */
+        gcmkONERROR(gckOS_AcquireMutex(Event->os,
+                                       Event->eventQueueMutex,
+                                       gcvINFINITE));
+        acquired = gcvTRUE;
+
         gcmDEBUG_ONLY(
             if (IDs == 0)
             {
@@ -2044,6 +2050,10 @@ gckEVENT_Notify(
                 "Interrupts 0x%x are not pending.",
                 pending
                 );
+
+            /* Release the mutex queue. */
+            gcmkONERROR(gckOS_ReleaseMutex(Event->os, Event->eventQueueMutex));
+            acquired = gcvFALSE;
 
             spin_lock_irqsave(&Event->kernel->irq_lock, flags);
 #if gcdSMP
@@ -2105,12 +2115,6 @@ gckEVENT_Notify(
         Event->pending &= ~mask;
 #endif
         spin_unlock_irqrestore(&Event->kernel->irq_lock, flags);
-
-        /* Grab the mutex queue. */
-        gcmkONERROR(gckOS_AcquireMutex(Event->os,
-                                       Event->eventQueueMutex,
-                                       gcvINFINITE));
-        acquired = gcvTRUE;
 
         /* Grab the event head. */
         record = queue->head;
