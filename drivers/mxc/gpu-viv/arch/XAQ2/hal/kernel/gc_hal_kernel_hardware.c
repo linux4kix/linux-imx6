@@ -4296,7 +4296,7 @@ gckHARDWARE_SetPowerManagementState(
         /* Stop the Isr. */
         if (Hardware->stopIsr)
         {
-            gcmkONERROR(Hardware->stopIsr(Hardware->isrContext));
+            gcmkONERROR(Hardware->stopIsr(Hardware->isrContext, Hardware->core));
         }
     }
 
@@ -4390,7 +4390,7 @@ gckHARDWARE_SetPowerManagementState(
         if (Hardware->startIsr)
         {
             /* Start the Isr. */
-            gcmkONERROR(Hardware->startIsr(Hardware->isrContext));
+            gcmkONERROR(Hardware->startIsr(Hardware->isrContext, Hardware->core));
             isrStarted = gcvTRUE;
         }
 
@@ -4496,7 +4496,7 @@ OnError:
 
     if (isrStarted)
     {
-        gcmkVERIFY_OK(Hardware->stopIsr(Hardware->isrContext));
+        gcmkVERIFY_OK(Hardware->stopIsr(Hardware->isrContext, Hardware->core));
     }
 
     if (commitEntered)
@@ -5337,7 +5337,7 @@ gckHARDWARE_Reset(
     /* Stop isr, we will start it again when power on GPU. */
     if (Hardware->stopIsr)
     {
-        gcmkONERROR(Hardware->stopIsr(Hardware->isrContext));
+        gcmkONERROR(Hardware->stopIsr(Hardware->isrContext, Hardware->core));
     }
 
     /* Hardware reset. */

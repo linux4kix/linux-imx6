@@ -2125,7 +2125,7 @@ gckHARDWARE_Reset(
     IN gckHARDWARE Hardware
     );
 
-typedef gceSTATUS (*gctISRMANAGERFUNC)(gctPOINTER Context);
+typedef gceSTATUS (*gctISRMANAGERFUNC)(gctPOINTER Context, gceCORE Core);
 
 gceSTATUS
 gckHARDWARE_SetIsrManager(
